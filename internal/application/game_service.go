@@ -14,7 +14,7 @@ import (
 
 type GameService struct{ drawer *HangmanEngine }
 
-func NewGameService() *GameService { return &GameService{drawer: Engine()} }
+func NewGameService() *GameService { return &GameService{drawer: NewHangmanEngine("Лёгкий")} }
 
 func (s *GameService) Evaluate(secret, guess string) (domain.Result, error) {
 	if !word.SameRuneLen(secret, guess) {
@@ -39,12 +39,17 @@ func (s *GameService) Levels(cat string) []string {
 	sort.Strings(ks)
 	return ks
 }
+
 func (s *GameService) NewGame(cat, lvl string) (category, level string, w Word, hint string, sess domain.Session) {
 	category = s.resolveCategory(cat)
 	level = s.resolveLevel(category, lvl)
+
 	pool := Words[category][level]
 	w = pool[randInt(len(pool))]
+
+	s.drawer = NewHangmanEngine(level)
 	max := s.drawer.MaxStages()
+
 	sess = domain.NewSession(w.Text, max)
 	return category, level, w, w.Hint, sess
 }
