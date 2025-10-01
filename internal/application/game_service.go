@@ -56,6 +56,7 @@ type GuessOutcome struct {
 
 func (s *GameService) ApplyGuess(sess *domain.Session, r rune) GuessOutcome {
 	r = unicode.ToLower(r)
+
 	if sess.Won || sess.Lost {
 		return GuessOutcome{}
 	}
@@ -76,7 +77,6 @@ func (s *GameService) ApplyGuess(sess *domain.Session, r rune) GuessOutcome {
 	}
 	sess.Won = string(sess.Revealed) == string(sess.Secret)
 	sess.Lost = sess.Attempts >= sess.MaxAttempts
-
 	return GuessOutcome{Hit: hit}
 }
 
