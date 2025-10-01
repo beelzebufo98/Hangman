@@ -10,23 +10,20 @@ import (
 
 func main() {
 	switch len(os.Args) {
-	case 1:
-		infrastructure.RunInteractive()
 	case 3:
+		// неинтерактив: run <secret> <guess>
 		secret, guess := os.Args[1], os.Args[2]
 		svc := application.NewGameService()
 		res, err := svc.Evaluate(secret, guess)
 		if err != nil {
 			lr := func(s string) int { return len([]rune(s)) }
-			fmt.Fprintf(os.Stderr,
-				"Ошибка: %v (загаданное=%q, длина=%d; проверочное=%q, длина=%d)\n",
-				err, secret, lr(secret), guess, lr(guess),
-			)
+			fmt.Fprintf(os.Stderr, "Ошибка: %v (загаданное=%q, длина=%d; проверочное=%q, длина=%d)\n",
+				err, secret, lr(secret), guess, lr(guess))
 			os.Exit(1)
 		}
 		fmt.Printf("%s;%s\n", res.Masked, res.Status)
 	default:
-		fmt.Fprintln(os.Stderr, "Использование: run <загаданное_слово> <проверочное_слово> | без аргументов для интерактива")
-		os.Exit(1)
+		// интерактив без аргументов (или с мусорными — тоже сюда)
+		infrastructure.RunInteractive()
 	}
 }
