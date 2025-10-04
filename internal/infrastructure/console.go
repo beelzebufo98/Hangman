@@ -52,21 +52,10 @@ func RunInteractive() {
 			fmt.Printf("Были буквы: %s\n", guessed)
 		}
 
-		fmt.Print("\nВведите букву: ")
-		line, _ := in.ReadString('\n')
-		line = strings.TrimSpace(line)
-		if line == "" {
+		r, ok := readSingleLetter(in)
+		if !ok {
 			continue
 		}
-
-		r, _ := utf8.DecodeRuneInString(line)
-		if r == utf8.RuneError {
-			continue
-		}
-		if utf8.RuneCountInString(line) > 1 {
-			fmt.Printf("Вы ввели несколько символов, беру первую букву: %q\n", string(r))
-		}
-		r = unicode.ToLower(r)
 
 		out := svc.ApplyGuess(&sess, r)
 		switch {
@@ -85,6 +74,24 @@ func RunInteractive() {
 		left := sess.MaxAttempts - sess.Attempts
 		fmt.Printf("Осталось попыток: %d\n", left)
 	}
+}
+
+func readSingleLetter(in *bufio.Reader) (rune, bool) {
+	fmt.Print("\nВведите букву: ")
+	line, _ := in.ReadString('\n')
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return 0, false
+	}
+	if utf8.RuneCountInString(line) != 1 {
+		fmt.Println("Вы ввели больше одного символа. Введите ровно одну букву.")
+		return 0, false
+	}
+	r, _ := utf8.DecodeRuneInString(line)
+	if r == utf8.RuneError {
+		return 0, false
+	}
+	return unicode.ToLower(r), true
 }
 
 func printNumbered(items []string) {
