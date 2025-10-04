@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/beelzebufo98/Hangman/internal/application"
@@ -57,10 +58,15 @@ func RunInteractive() {
 		if line == "" {
 			continue
 		}
+
 		r, _ := utf8.DecodeRuneInString(line)
 		if r == utf8.RuneError {
 			continue
 		}
+		if utf8.RuneCountInString(line) > 1 {
+			fmt.Printf("Вы ввели несколько символов, беру первую букву: %q\n", string(r))
+		}
+		r = unicode.ToLower(r)
 
 		out := svc.ApplyGuess(&sess, r)
 		switch {
