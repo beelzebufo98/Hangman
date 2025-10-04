@@ -5,6 +5,11 @@ type Word struct {
 	Hint string
 }
 
+var levelOrder = map[string]int{
+	"Лёгкий":  1,
+	"Средний": 2,
+	"Сложный": 3,
+}
 var Words = map[string]map[string][]Word{
 	"Животные": {
 		"Лёгкий": {

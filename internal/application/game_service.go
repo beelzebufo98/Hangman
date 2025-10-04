@@ -33,10 +33,13 @@ func (s *GameService) Categories() []string {
 	sort.Strings(ks)
 	return ks
 }
+
 func (s *GameService) Levels(cat string) []string {
 	cat = s.resolveCategory(cat)
 	ks := mapKeys(Words[cat])
-	sort.Strings(ks)
+	sort.Slice(ks, func(i, j int) bool {
+		return levelOrder[ks[i]] < levelOrder[ks[j]]
+	})
 	return ks
 }
 

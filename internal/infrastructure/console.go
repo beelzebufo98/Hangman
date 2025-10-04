@@ -29,11 +29,15 @@ func RunInteractive() {
 	category, level, _, hint, sess := svc.NewGame(cat, lvl)
 
 	fmt.Printf("\nКатегория: %s | Сложность: %s\n", category, level)
-	fmt.Printf("Подсказка: %s\n", hint)
-	fmt.Printf("Допустимых ошибок: %d\n\n", sess.MaxAttempts)
+	fmt.Printf("Допустимых ошибок: %d\n", sess.MaxAttempts)
+	fmt.Println("(Подсказка доступна по запросу после промаха)")
+
+	hintShown := false
 
 	for {
+		fmt.Println()
 		fmt.Println(svc.Render(sess))
+
 		if sess.Won {
 			fmt.Printf("\nПобеда! Слово: %q\n", string(sess.Secret))
 			return
@@ -66,10 +70,14 @@ func RunInteractive() {
 			fmt.Println("Есть совпадение!")
 		default:
 			fmt.Println("Промах.")
+			if !hintShown && askYesNo(in, "Показать подсказку? [y/N]: ") {
+				fmt.Printf("Подсказка: %s\n", hint)
+				hintShown = true
+			}
 		}
 
 		left := sess.MaxAttempts - sess.Attempts
-		fmt.Printf("Осталось попыток: %d\n\n", left)
+		fmt.Printf("Осталось попыток: %d\n", left)
 	}
 }
 
@@ -78,6 +86,7 @@ func printNumbered(items []string) {
 		fmt.Printf("  %d) %s\n", i+1, v)
 	}
 }
+
 func readMenuChoice(in *bufio.Reader, items []string) string {
 	fmt.Print("> ")
 	raw, _ := in.ReadString('\n')
@@ -94,4 +103,11 @@ func readMenuChoice(in *bufio.Reader, items []string) string {
 		}
 	}
 	return ""
+}
+
+func askYesNo(in *bufio.Reader, prompt string) bool {
+	fmt.Print(prompt)
+	ans, _ := in.ReadString('\n')
+	ans = strings.TrimSpace(strings.ToLower(ans))
+	return ans == "y" || ans == "yes" || ans == "д" || ans == "да"
 }
