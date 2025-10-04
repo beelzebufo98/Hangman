@@ -1,11 +1,15 @@
 package word
 
+import "strings"
+
 func MaskEqualPositions(secret, guess string) string {
 	s := []rune(secret)
-	g := []rune(guess)
+	ls := []rune(strings.ToLower(secret))
+	lg := []rune(strings.ToLower(guess))
+
 	res := make([]rune, len(s))
 	for i := range s {
-		if s[i] == g[i] {
+		if ls[i] == lg[i] {
 			res[i] = s[i]
 		} else {
 			res[i] = '*'
