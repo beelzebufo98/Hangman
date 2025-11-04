@@ -14,7 +14,7 @@ func main() {
 		infrastructure.RunInteractive()
 	case 3:
 		secret, guess := os.Args[1], os.Args[2]
-		svc := application.NewGameService()
+		svc := application.NewEvalOnlyService()
 		res, err := svc.Evaluate(secret, guess)
 		if err != nil {
 			lr := func(s string) int { return len([]rune(s)) }

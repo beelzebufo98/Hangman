@@ -1,9 +1,7 @@
 package application
 
 import (
-	"crypto/rand"
 	"fmt"
-	"math/big"
 	"sort"
 	"strings"
 	"unicode"
@@ -12,47 +10,57 @@ import (
 	"github.com/beelzebufo98/Hangman/pkg/word"
 )
 
-type GameService struct{ drawer *HangmanEngine }
+type GameService struct {
+	drawer domain.Drawer
+	words  domain.WordProvider
+}
 
-func NewGameService() *GameService { return &GameService{drawer: NewHangmanEngine("Лёгкий")} }
+func NewGameService(provider domain.WordProvider, drawer domain.Drawer) *GameService {
+	return &GameService{drawer: drawer, words: provider}
+}
+
+func NewEvalOnlyService() *GameService { return &GameService{} }
 
 func (s *GameService) Evaluate(secret, guess string) (domain.Result, error) {
 	if !word.SameRuneLen(secret, guess) {
 		return domain.Result{}, fmt.Errorf("слова должны быть одинаковой длины")
 	}
 	masked := word.MaskEqualPositions(secret, guess)
-	status := domain.StatusNEG
+	status := domain.InProgress
 	if masked == secret {
-		status = domain.StatusPOS
+		status = domain.Win
 	}
 	return domain.Result{Masked: masked, Status: status}, nil
 }
 
 func (s *GameService) Categories() []string {
-	ks := mapKeys(Words)
-	sort.Strings(ks)
-	return ks
+	return s.words.GetCategories()
 }
 
 func (s *GameService) Levels(cat string) []string {
-	cat = s.resolveCategory(cat)
-	ks := mapKeys(Words[cat])
-	sort.Slice(ks, func(i, j int) bool {
-		return levelOrder[ks[i]] < levelOrder[ks[j]]
-	})
-	return ks
+	levels := s.words.GetLevels(cat)
+	out := make([]string, len(levels))
+	for i, d := range levels {
+		out[i] = d.String()
+	}
+	sort.Slice(out, func(i, j int) bool { return i < j })
+	return out
 }
 
-func (s *GameService) NewGame(cat, lvl string) (category, level string, w Word, hint string, sess domain.Session) {
-	category = s.resolveCategory(cat)
-	level = s.resolveLevel(category, lvl)
+func (s *GameService) NewGame(cat string, lvl domain.Difficulty) (category string, level domain.Difficulty, w domain.Word, hint string, sess domain.Session) {
+	for _, c := range s.words.GetCategories() {
+		if strings.EqualFold(c, cat) {
+			category = c
+			break
+		}
+	}
+	if category == "" {
+		category = s.words.GetCategories()[0]
+	}
+	level = lvl
+	w = s.words.GetRandomWord(category, level)
 
-	pool := Words[category][level]
-	w = pool[randInt(len(pool))]
-
-	s.drawer = NewHangmanEngine(level)
 	max := s.drawer.MaxStages()
-
 	sess = domain.NewSession(w.Text, max)
 	return category, level, w, w.Hint, sess
 }
@@ -101,46 +109,5 @@ func (s *GameService) GuessedLetters(sess domain.Session) string {
 }
 
 func (s *GameService) Render(sess domain.Session) string {
-	return s.drawer.Stage(sess.Attempts) + "\n" + string(sess.Revealed)
-}
-
-func (s *GameService) resolveCategory(in string) string {
-	if in == "" {
-		ks := mapKeys(Words)
-		return ks[randInt(len(ks))]
-	}
-	for k := range Words {
-		if strings.EqualFold(k, in) {
-			return k
-		}
-	}
-	ks := mapKeys(Words)
-	return ks[randInt(len(ks))]
-}
-func (s *GameService) resolveLevel(cat, lvl string) string {
-	if lvl == "" {
-		ks := mapKeys(Words[cat])
-		return ks[randInt(len(ks))]
-	}
-	for k := range Words[cat] {
-		if strings.EqualFold(k, lvl) {
-			return k
-		}
-	}
-	ks := mapKeys(Words[cat])
-	return ks[randInt(len(ks))]
-}
-func mapKeys[M ~map[string]V, V any](m M) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	return out
-}
-func randInt(n int) int {
-	if n <= 0 {
-		return 0
-	}
-	m, _ := rand.Int(rand.Reader, big.NewInt(int64(n)))
-	return int(m.Int64())
+	return s.drawer.Render(sess.Attempts) + "\n" + string(sess.Revealed)
 }

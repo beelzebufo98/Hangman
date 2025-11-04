@@ -1,32 +1,34 @@
-package application
+package infrastructure
 
-type HangmanEngine struct{ stages []string }
+import "github.com/beelzebufo98/Hangman/internal/domain"
 
-func NewHangmanEngine(level string) *HangmanEngine {
-	switch level {
-	case "Сложный":
-		return engineHard()
-	case "Средний":
-		return engineMedium()
+type AsciiDrawer struct{ stages []string }
+
+func NewAsciiDrawer(d domain.Difficulty) *AsciiDrawer {
+	switch d {
+	case domain.Hard:
+		return &AsciiDrawer{stages: stagesHard()}
+	case domain.Medium:
+		return &AsciiDrawer{stages: stagesMedium()}
 	default:
-		return engineEasy()
+		return &AsciiDrawer{stages: stagesEasy()}
 	}
 }
 
-func (h *HangmanEngine) Stage(errors int) string {
+func (a *AsciiDrawer) Render(errors int) string {
 	if errors < 0 {
 		errors = 0
 	}
-	if errors >= len(h.stages) {
-		errors = len(h.stages) - 1
+	if errors >= len(a.stages) {
+		errors = len(a.stages) - 1
 	}
-	return h.stages[errors]
+	return a.stages[errors]
 }
 
-func (h *HangmanEngine) MaxStages() int { return len(h.stages) - 1 }
+func (a *AsciiDrawer) MaxStages() int { return len(a.stages) - 1 }
 
-func engineEasy() *HangmanEngine {
-	s := []string{
+func stagesEasy() []string {
+	return []string{
 		`
  ------
  |    |
@@ -82,11 +84,10 @@ func engineEasy() *HangmanEngine {
 =========
 `,
 	}
-	return &HangmanEngine{stages: s}
 }
 
-func engineMedium() *HangmanEngine {
-	s := []string{
+func stagesMedium() []string {
+	return []string{
 		`
  ------
  |    |
@@ -160,11 +161,10 @@ func engineMedium() *HangmanEngine {
 =========
 `,
 	}
-	return &HangmanEngine{stages: s}
 }
 
-func engineHard() *HangmanEngine {
-	s := []string{
+func stagesHard() []string {
+	return []string{
 		`
  ------
  |    |
@@ -247,5 +247,4 @@ func engineHard() *HangmanEngine {
 =========
 `,
 	}
-	return &HangmanEngine{stages: s}
 }

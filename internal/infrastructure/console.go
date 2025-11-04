@@ -10,11 +10,15 @@ import (
 	"unicode/utf8"
 
 	"github.com/beelzebufo98/Hangman/internal/application"
+	"github.com/beelzebufo98/Hangman/internal/domain"
 )
 
 func RunInteractive() {
 	in := bufio.NewReader(os.Stdin)
-	svc := application.NewGameService()
+
+	provider := NewStaticWordProvider()
+	drawer := NewAsciiDrawer(domain.Easy)
+	svc := application.NewGameService(provider, drawer)
 
 	fmt.Println("=== Виселица ===")
 	cats := svc.Categories()
@@ -22,14 +26,22 @@ func RunInteractive() {
 	printNumbered(cats)
 	cat := readMenuChoice(in, cats)
 
-	lvls := svc.Levels(cat)
+	levels := []domain.Difficulty{domain.Easy, domain.Medium, domain.Hard}
+	levelLabels := make([]string, len(levels))
+	for i, lv := range levels {
+		levelLabels[i] = lv.String()
+	}
+
 	fmt.Println("\nВыберите уровень сложности (Enter — случайный):")
-	printNumbered(lvls)
-	lvl := readMenuChoice(in, lvls)
+	printNumbered(levelLabels)
+	lvl := parseDifficulty(readMenuChoice(in, levelLabels))
+
+	drawer = NewAsciiDrawer(lvl)
+	svc = application.NewGameService(provider, drawer)
 
 	category, level, _, hint, sess := svc.NewGame(cat, lvl)
 
-	fmt.Printf("\nКатегория: %s | Сложность: %s\n", category, level)
+	fmt.Printf("\nКатегория: %s | Сложность: %s\n", category, level.String())
 	fmt.Printf("Допустимых ошибок: %d\n", sess.MaxAttempts)
 	fmt.Println("(Подсказка доступна по запросу после промаха)")
 
@@ -73,6 +85,17 @@ func RunInteractive() {
 
 		left := sess.MaxAttempts - sess.Attempts
 		fmt.Printf("Осталось попыток: %d\n", left)
+	}
+}
+
+func parseDifficulty(s string) domain.Difficulty {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case strings.ToLower(domain.Medium.String()):
+		return domain.Medium
+	case strings.ToLower(domain.Hard.String()):
+		return domain.Hard
+	default:
+		return domain.Easy
 	}
 }
 
