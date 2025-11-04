@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -13,89 +12,80 @@ import (
 	"github.com/beelzebufo98/Hangman/internal/domain"
 )
 
-func RunInteractive() {
-	in := bufio.NewReader(os.Stdin)
+type ConsoleRunner struct {
+	reader  *bufio.Reader
+	usecase *application.GameUseCase
+}
 
-	provider := NewStaticWordProvider()
-	drawer := NewAsciiDrawer(domain.Easy)
-	svc := application.NewGameService(provider, drawer)
+func NewConsoleRunner(usecase *application.GameUseCase) *ConsoleRunner {
+	return &ConsoleRunner{
+		reader:  bufio.NewReader(os.Stdin),
+		usecase: usecase,
+	}
+}
 
+func (r *ConsoleRunner) Run() {
 	fmt.Println("=== Виселица ===")
-	cats := svc.Categories()
+	cats := r.usecase.Categories()
 	fmt.Println("\nВыберите категорию (Enter — случайная):")
 	printNumbered(cats)
-	cat := readMenuChoice(in, cats)
+	cat := readMenuChoice(r.reader, cats)
 
-	levels := []domain.Difficulty{domain.Easy, domain.Medium, domain.Hard}
-	levelLabels := make([]string, len(levels))
-	for i, lv := range levels {
-		levelLabels[i] = lv.String()
-	}
+	levelLabels := r.usecase.Levels(cat)
 
 	fmt.Println("\nВыберите уровень сложности (Enter — случайный):")
 	printNumbered(levelLabels)
-	lvl := parseDifficulty(readMenuChoice(in, levelLabels))
+	lvl := parseDifficulty(readMenuChoice(r.reader, levelLabels))
 
-	drawer = NewAsciiDrawer(lvl)
-	svc = application.NewGameService(provider, drawer)
+	category, level, game, hint := r.usecase.NewGame(cat, lvl, nil)
 
-	category, level, _, hint, sess := svc.NewGame(cat, lvl)
+	drawer := NewAsciiDrawer(level)
+	game.Session.MaxAttempts = drawer.MaxStages()
 
 	fmt.Printf("\nКатегория: %s | Сложность: %s\n", category, level.String())
-	fmt.Printf("Допустимых ошибок: %d\n", sess.MaxAttempts)
+	fmt.Printf("Допустимых ошибок: %d\n", game.Session.MaxAttempts)
 	fmt.Println("(Подсказка доступна по запросу после промаха)")
 
 	hintShown := false
 
 	for {
 		fmt.Println()
-		fmt.Println(svc.Render(sess))
+		fmt.Printf("Слово: %s\n", game.RevealedWord())
 
-		if sess.Won {
-			fmt.Printf("\nПобеда! Слово: %q\n", string(sess.Secret))
+		if guessed := r.usecase.GuessedLetters(*game.Session); guessed != "" {
+			fmt.Printf("Введённые буквы: %s\n", guessed)
+		}
+
+		if game.Finished() {
+			if game.Status == domain.Win {
+				fmt.Printf("\nПобеда! Слово: %q\n", string(game.Session.Secret))
+			} else {
+				fmt.Printf("\nПоражение. Слово было: %q\n", string(game.Session.Secret))
+			}
 			return
 		}
-		if sess.Lost {
-			fmt.Printf("\nПоражение. Слово было: %q\n", string(sess.Secret))
-			return
-		}
 
-		if guessed := svc.GuessedLetters(sess); guessed != "" {
-			fmt.Printf("Были буквы: %s\n", guessed)
-		}
-
-		r, ok := readSingleLetter(in)
+		rn, ok := readSingleLetter(r.reader)
 		if !ok {
 			continue
 		}
 
-		out := svc.ApplyGuess(&sess, r)
+		hit, repeated := game.GuessLetter(rn)
 		switch {
-		case out.Repeated:
+		case repeated:
 			fmt.Println("Эта буква уже вводилась, попробуйте другую.")
-		case out.Hit:
+		case hit:
 			fmt.Println("Есть совпадение!")
 		default:
 			fmt.Println("Промах.")
-			if !hintShown && askYesNo(in, "Показать подсказку? [y/N]: ") {
+			if !hintShown && askYesNo(r.reader, "Показать подсказку? [y/N]: ") {
 				fmt.Printf("Подсказка: %s\n", hint)
 				hintShown = true
 			}
 		}
 
-		left := sess.MaxAttempts - sess.Attempts
+		left := game.Session.MaxAttempts - game.Session.Attempts
 		fmt.Printf("Осталось попыток: %d\n", left)
-	}
-}
-
-func parseDifficulty(s string) domain.Difficulty {
-	switch strings.ToLower(strings.TrimSpace(s)) {
-	case strings.ToLower(domain.Medium.String()):
-		return domain.Medium
-	case strings.ToLower(domain.Hard.String()):
-		return domain.Hard
-	default:
-		return domain.Easy
 	}
 }
 
@@ -107,13 +97,10 @@ func readSingleLetter(in *bufio.Reader) (rune, bool) {
 		return 0, false
 	}
 	if utf8.RuneCountInString(line) != 1 {
-		fmt.Println("Вы ввели больше одного символа. Введите ровно одну букву.")
+		fmt.Println("Введите ровно одну букву.")
 		return 0, false
 	}
 	r, _ := utf8.DecodeRuneInString(line)
-	if r == utf8.RuneError {
-		return 0, false
-	}
 	return unicode.ToLower(r), true
 }
 
@@ -127,12 +114,6 @@ func readMenuChoice(in *bufio.Reader, items []string) string {
 	fmt.Print("> ")
 	raw, _ := in.ReadString('\n')
 	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return ""
-	}
-	if idx, err := strconv.Atoi(raw); err == nil && idx >= 1 && idx <= len(items) {
-		return items[idx-1]
-	}
 	for _, v := range items {
 		if strings.EqualFold(v, raw) {
 			return v
@@ -146,4 +127,18 @@ func askYesNo(in *bufio.Reader, prompt string) bool {
 	ans, _ := in.ReadString('\n')
 	ans = strings.TrimSpace(strings.ToLower(ans))
 	return ans == "y" || ans == "yes" || ans == "д" || ans == "да"
+}
+
+func parseDifficulty(s string) domain.Difficulty {
+	s = strings.ToLower(strings.TrimSpace(s))
+	switch s {
+	case strings.ToLower(domain.Medium.String()):
+		return domain.Medium
+	case strings.ToLower(domain.Hard.String()):
+		return domain.Hard
+	case strings.ToLower(domain.Easy.String()):
+		return domain.Easy
+	default:
+		return 0
+	}
 }

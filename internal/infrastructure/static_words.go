@@ -3,7 +3,6 @@ package infrastructure
 import (
 	"crypto/rand"
 	"math/big"
-	"sort"
 	"strings"
 
 	"github.com/beelzebufo98/Hangman/internal/domain"
@@ -22,7 +21,6 @@ func (p *StaticWordProvider) GetCategories() []string {
 	for k := range p.data {
 		out = append(out, k)
 	}
-	sort.Strings(out)
 	return out
 }
 
@@ -33,7 +31,7 @@ func (p *StaticWordProvider) GetLevels(category string) []domain.Difficulty {
 			for lv := range p.data[k] {
 				levels = append(levels, lv)
 			}
-			sort.Slice(levels, func(i, j int) bool { return levels[i] < levels[j] })
+			shuffleDifficulties(levels)
 			return levels
 		}
 	}
@@ -59,6 +57,13 @@ func (p *StaticWordProvider) GetRandomWord(category string, level domain.Difficu
 		pool = p.data[cat][domain.Easy]
 	}
 	return pool[randInt(len(pool))]
+}
+
+func shuffleDifficulties(levels []domain.Difficulty) {
+	for i := range levels {
+		j := randInt(len(levels))
+		levels[i], levels[j] = levels[j], levels[i]
+	}
 }
 
 func randInt(n int) int {
