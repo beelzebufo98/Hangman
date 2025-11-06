@@ -1,3 +1,3 @@
-module gitlab.education.tbank.ru/backend-academy-go-2025/homeworks/hw1-hangman
+module github.com/beelzebufo98/Hangman
 
 go 1.25.0
